@@ -1,17 +1,21 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum, auto, unique
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from common.ccsds import Gvcid
 from common.fsm import CopState
 from common.service import Indication
 from common.util import BoundedDeque
-from spacepackets.uslp import BypassSequenceControlFlag, ProtocolCommandFlag
+
+if TYPE_CHECKING:
+    from common.ccsds import Gvcid
+    from spacepackets.uslp import BypassSequenceControlFlag, ProtocolCommandFlag
 
 
 @unique
 class FopState(CopState):
-    """The state of FOP-1
+    """The state of FOP-1.
 
     CCSDS 232.1-B-2 § 5.1.2
     """
@@ -120,7 +124,7 @@ class AsyncNotification(Indication):
     notification_type: AsyncNotificationType
     # Qualifier is the Notification Type's parameter
     # Alert has "Reason Code" but Suspend has no params
-    notification_qualifier: Optional[Alert]
+    notification_qualifier: Alert | None
 
 
 @dataclass
@@ -146,7 +150,7 @@ class SentQueueEntry:
 
 
 class FopInterface:
-    def __init__(self, size: int = 10):
+    def __init__(self, size: int = 10) -> None:
         self.signal_queue: BoundedDeque[Indication] = BoundedDeque(size)
         self.to_higher: BoundedDeque[Indication] = BoundedDeque(size)
         self.to_lower: BoundedDeque[Indication] = BoundedDeque(size)

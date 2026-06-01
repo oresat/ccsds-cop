@@ -1,8 +1,11 @@
+# ruff: noqa: PLR5501 (use elif instead of if) - The code matches the spec
+# better when written this way
+from __future__ import annotations
+
 import threading
 from collections import deque
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from common.ccsds import ControlWord, Gvcid
 from common.fsm import StateMachine
 from common.service import CopService
 from common.util import logger
@@ -18,6 +21,7 @@ from .types import (
     DirectiveNotification,
     DirectiveRequest,
     DirectiveType,
+    FopInterface,
     FopState,
     NotificationType,
     RequestToTransferFdu,
@@ -28,14 +32,16 @@ from .types import (
     TransferNotification,
     TransmitRequestForFrame,
     WaitQueueEntry,
-    FopInterface,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from common.ccsds import ControlWord, Gvcid
 
 
 class Fop1(CopService):
-    """Frame Operation Procedure-1 (FOP-1), CCSDS 323.1-B-2"""
-
-    _transitions = {}
+    """Frame Operation Procedure-1 (FOP-1), CCSDS 323.1-B-2."""
 
     def __init__(
         self,
@@ -47,7 +53,7 @@ class Fop1(CopService):
         self.interface = FopInterface()
         # TRANSMITTER_FRAME_SEQUENCE_NUMBER, V(S)
         self.v_s: int = 0
-        self._wait_queue: Optional[WaitQueueEntry] = None
+        self._wait_queue: WaitQueueEntry | None = None
         self._sent_queue: deque[SentQueueEntry] = deque()
         # True == Ready and False == Not_Ready
         self.ad_out: bool = False
@@ -66,7 +72,7 @@ class Fop1(CopService):
         self._timer = None
         self._request_id: int = 0
         self._gvcid: Gvcid = gvcid
-        self._pending_directive_request: Optional[DirectiveRequest] = None
+        self._pending_directive_request: DirectiveRequest | None = None
         self._pending_fdu: RequestToTransferFdu = None
 
         self._fsm = StateMachine[FopState, FopEvent](FopState.INITIAL)
@@ -233,7 +239,7 @@ class Fop1(CopService):
             elif self.timeout_type == 1:
                 self.on_event(FopEvent.E104)
             else:
-                logger.error(f"Timeout_Type not 0 or 1, resetting to 0")
+                logger.error("Timeout_Type not 0 or 1, resetting to 0")
                 self.timeout_type = 0
         else:
             if self.timeout_type == 0:
@@ -241,7 +247,7 @@ class Fop1(CopService):
             elif self.timeout_type == 1:
                 self.on_event(FopEvent.E18_B)
             else:
-                logger.error(f"Timeout_Type not 0 or 1, resetting to 0")
+                logger.error("Timeout_Type not 0 or 1, resetting to 0")
                 self.timeout_type = 0
 
     def accept_fdu(self) -> None:
@@ -365,7 +371,7 @@ class Fop1(CopService):
                     self.transmit_type_ad_frame(waiting_fdu)
 
     def release_copy_of_bc_frame(self) -> None:
-        """Release copy of type BC frame
+        """Release copy of type BC frame.
 
         This action is not defined in the COP-1 standard, instead it must be inferred
         from the context of the state machine. It is analogous to Remove acknowledged frames from
@@ -495,8 +501,8 @@ class Fop1(CopService):
 # generate methods for alerts since transitions are parameterless
 for at in Alert:
 
-    def make_alert(alert_type):
-        def action(self):
+    def make_alert(alert_type: Alert) -> Callable[[Fop1], None]:
+        def action(self: Fop1) -> None:
             self.alert(alert_type)
 
         return action

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Gvcid:
-    """Global Virtual Channel Identifier
+    """Global Virtual Channel Identifier.
 
     CCSDS 732.1-B
     GVCID = TFVN + SCID + VCID
@@ -23,7 +23,8 @@ class Gvcid:
     scid: int  # 16 bits
     vcid: int  # 6 bits
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Check that the fields are valid."""
         if not 0 <= self.tfvn <= 0xF:
             raise ValueError(f"TFVN must be 4 bits, got {self.tfvn}")
         if not 0 <= self.scid <= 0xFFFF:

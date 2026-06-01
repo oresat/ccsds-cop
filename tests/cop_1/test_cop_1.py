@@ -12,15 +12,24 @@ from spacepackets.uslp import (
     UslpProtocolIdentifier,
 )
 
-from oresat_c3.protocols.cop1 import ControlWord, Gvcid
-from oresat_c3.protocols.cop1.farm import (
+from ccsds_cop.cop_1 import ControlWord, Gvcid
+from ccsds_cop.cop_1.farm import (
     Farm1,
     FarmState,
     FduArrivedIndication,
     ValidFrameArrivedIndication,
 )
-from oresat_c3.protocols.edl_packet import EdlVcid
-from oresat_c3.protocols.uslp import SPACECRAFT_ID, TC_MIN_LEN
+
+# FIXME: Copied from oresat-c3-software, we'll eventually want to make these
+# values more generic for this project? Specify a range to test over? Something.
+TEST_VCID = 0
+SPACECRAFT_ID = 0x4F53  # "OS" in ASCII
+PRIMARY_HEADER_LEN = 7
+SEQ_NUM_LEN = 4
+DFH_LEN = 1
+HMAC_LEN = 32
+FECF_LEN = 2
+TC_MIN_LEN = PRIMARY_HEADER_LEN + SEQ_NUM_LEN + DFH_LEN + HMAC_LEN + FECF_LEN
 
 
 class TestFarm1(unittest.TestCase):
@@ -47,7 +56,7 @@ class TestFarm1(unittest.TestCase):
                 header=PrimaryHeader(
                     scid=SPACECRAFT_ID,
                     map_id=0,
-                    vcid=EdlVcid.C3_COMMAND,
+                    vcid=TEST_VCID,
                     src_dest=SourceOrDestField.DEST,
                     frame_len=frame_len,
                     vcf_count_len=2,

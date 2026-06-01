@@ -1,16 +1,20 @@
 from dataclasses import dataclass
 from math import ceil
-
-from spacepackets.uslp import TransferFrame
+from typing import TYPE_CHECKING
 
 from .ccsds import Gvcid
 from .util import BoundedDeque
 
+if TYPE_CHECKING:
+    from spacepackets.uslp import TransferFrame
+
 
 @dataclass
 class Indication:
-    """This is the base for COP indications. Sometimes referred to as requests, directives, signals,
-    notifications, or indications depending on the context.
+    """The base for COP indications.
+
+    Sometimes referred to as requests, directives, signals, notifications, or
+    indications depending on the context.
 
     Parameters
     ----------
@@ -40,7 +44,7 @@ class ServiceInterface:
     """
 
     def __init__(self, buffer_size: int, signal_size: int = 0) -> None:
-        """
+        """Initialize a ServiceInterface.
 
         Parameters
         ----------
@@ -51,7 +55,6 @@ class ServiceInterface:
             as 1.25x the buffer size, to accommodate both frame indications for a full buffer, and
             leave some room for any additional signals (such as aborted indications).
         """
-
         self.buffer: BoundedDeque[TransferFrame] = BoundedDeque(buffer_size)
         self.signal: BoundedDeque[Indication] = BoundedDeque(
             signal_size if signal_size > 0 else ceil(buffer_size * 1.25)
@@ -72,7 +75,7 @@ class CopService:
     """
 
     def __init__(self, buffer_size: int = 10) -> None:
-        """
+        """Initialize a CopService.
 
         Parameters
         ----------
@@ -86,4 +89,4 @@ class CopService:
         self.higher_interface: ServiceInterface = ServiceInterface(buffer_size)
 
     def tick(self) -> None:
-        raise NotImplemented
+        raise NotImplementedError

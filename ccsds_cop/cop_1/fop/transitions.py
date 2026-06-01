@@ -261,7 +261,6 @@ _transitions: dict[StateMachine.TRANSITION_FROM, tuple[FopState, str]] = {
     (FopState.INITIALIZING_WITH_BC, FopEvent.E14): (FopState.INITIALIZING_WITH_BC, _ignore),
     (FopState.INITIALIZING_WITH_BC, FopEvent.E15): (FopState.INITIAL, _clcw),
     (FopState.INITIALIZING_WITH_BC, FopEvent.E16_B): (FopState.INITIALIZING_WITH_BC, _e16),
-    (FopState.INITIALIZING_WITH_BC, FopEvent.E16_B): (FopState.INITIALIZING_WITH_BC, _e16),
     (FopState.INITIALIZING_WITH_BC, FopEvent.E17_B): (FopState.INITIAL, _t1),
     (FopState.INITIALIZING_WITH_BC, FopEvent.E18_B): (FopState.INITIAL, _suspend),
     (FopState.INITIALIZING_WITH_BC, FopEvent.E19): (FopState.INITIALIZING_WITH_BC, _reject_fdu),

@@ -2,15 +2,16 @@ import threading
 from dataclasses import dataclass
 from enum import Enum, unique
 
+from spacepackets.uslp import BypassSequenceControlFlag, ProtocolCommandFlag, TransferFrame
+
 from .common.ccsds import Gvcid
 from .common.service import CopService, Indication, ServiceInterface
 from .common.util import logger
-from spacepackets.uslp import BypassSequenceControlFlag, ProtocolCommandFlag, TransferFrame
 
 
 @unique
 class FarmState(Enum):
-    """The State of FARM-1"""
+    """The State of FARM-1."""
 
     OPEN = 1
     WAIT = 2
@@ -36,8 +37,6 @@ class ValidFrameArrivedIndication(Indication):
     buffer.
     """
 
-    pass
-
 
 class FarmHigherServiceInterface(ServiceInterface):
     """A ServiceInterface specifically for FARM-1 higher procedures.
@@ -61,6 +60,7 @@ class Farm1(CopService):
         pw: int = 0,
         nw: int = 0,
         vcf_count_length: int = 1,
+        *,
         allow_retransmission: bool = True,
     ) -> None:
         super().__init__()
@@ -79,8 +79,7 @@ class Farm1(CopService):
         if self._retransmission_allowed:
             if not 2 <= w <= 254:
                 raise ValueError("2 <= W <= 254 must be true if retransmission is allowed")
-            else:
-                self.sliding_window_width = w
+            self.sliding_window_width = w
             self.positive_window_width = self.negative_window_width = int(
                 self.sliding_window_width / 2
             )
@@ -137,7 +136,6 @@ class Farm1(CopService):
         bool
             True if N(S) is in the positive window, False otherwise
         """
-
         return (
             0
             < (ns - self.receiver_frame_sequence_number) % self._modulus
@@ -162,13 +160,13 @@ class Farm1(CopService):
         ----------
         frame : TransferFrame
             The validated transfer frame to process.
+
         Returns
         -------
         bool
             True if the frame was successfully processed (either 'ACCEPT' action or no action),
             False for 'DISCARD'
         """
-
         if frame.header.bypass_seq_ctrl_flag == BypassSequenceControlFlag.EXPEDITED_QOS:
             if frame.header.prot_ctrl_cmd_flag == ProtocolCommandFlag.USER_DATA:
                 # E6 Type-BD, bypass COP
@@ -216,23 +214,22 @@ class Farm1(CopService):
                     self.retransmit = True
                     self.wait = True
                     return False
-                else:
-                    # E1 buffer is available
-                    gvcid = Gvcid(0b1100, frame.header.scid, frame.header.vcid)
-                    if not self.higher_interface.signal.appendleft(FduArrivedIndication(gvcid)):
-                        logger.error("Unable to append Arrived Indication")
-                    if self.state == FarmState.OPEN:
-                        self.receiver_frame_sequence_number = (
-                            self.receiver_frame_sequence_number + 1
-                        ) % self._modulus
-                        self.retransmit = False
-                    elif self.state == FarmState.WAIT:
-                        raise Exception(
-                            "Invalid state WAIT for E1: Type-AD received despite Wait_Flag ON"
-                        )
-                    elif self.state == FarmState.LOCKOUT:
-                        logger.warning("Discarding frame (E1,S3)")
-                        return False
+                # E1 buffer is available
+                gvcid = Gvcid(0b1100, frame.header.scid, frame.header.vcid)
+                if not self.higher_interface.signal.appendleft(FduArrivedIndication(gvcid)):
+                    logger.error("Unable to append Arrived Indication")
+                if self.state == FarmState.OPEN:
+                    self.receiver_frame_sequence_number = (
+                        self.receiver_frame_sequence_number + 1
+                    ) % self._modulus
+                    self.retransmit = False
+                elif self.state == FarmState.WAIT:
+                    raise RuntimeError(
+                        "Invalid state WAIT for E1: Type-AD received despite Wait_Flag ON"
+                    )
+                elif self.state == FarmState.LOCKOUT:
+                    logger.warning("Discarding frame (E1,S3)")
+                    return False
             elif self.is_in_positive_window(ns):
                 # E3 (second case): in the positive window, seq num is incorrect
                 logger.warning(f"Discarding frame (E3,{self.state})")
