@@ -58,6 +58,7 @@ ignore = [
     "EM102", # Exception must not use an f-string literal
     "FIX",  # flake8-fixme
     "TD",  # flake8-todos
+    "TID252", # Prefer absolute imports over relative imports from parent modules
     # This might be good to turn on later, right now I'm on the fence about it
     "TRY003",  # Avoid specifying long messages outside the exception class
     # Another one that might be good later but for now is too aggressive. Many of
@@ -81,3 +82,7 @@ ignore = [
               # interface but sometimes it's hard to get the info without it
     "D",      # Docstrings - tests dont really need them
 ]
+
+[[tool.mypy.overrides]]
+module = ["spacepackets.uslp.*"]
+follow_untyped_imports = true

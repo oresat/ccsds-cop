@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from enum import Enum, IntEnum
-from typing import Callable, Generic, NamedTuple, TypeVar
+from typing import Generic, NamedTuple, TypeVar
 
 from .util import logger
 
@@ -16,13 +17,20 @@ T = TypeVar("T", bound=CopState)
 U = TypeVar("U", bound=CopEvent)
 
 
-class StateMachine(Generic[T, U]):
-    TRANSITION_FROM = NamedTuple("TransitionFrom", (("from_state", T), ("event", U)))
-    TRANSITION_TO = NamedTuple("TransitionTo", (("to_state", T), ("actions", list[Callable])))
+class TransitionFrom(NamedTuple, Generic[T, U]):
+    from_state: T
+    event: U
 
+
+class TransitionTo(NamedTuple, Generic[T]):
+    to_state: T
+    actions: list[Callable[[], None]]
+
+
+class StateMachine(Generic[T, U]):
     def __init__(self, initial_state: T) -> None:
         self._current_state: T = initial_state
-        self._transition_map: dict[StateMachine.TRANSITION_FROM, StateMachine.TRANSITION_TO] = {}
+        self._transition_map: dict[TransitionFrom[T, U], TransitionTo[T]] = {}
 
     @property
     def current_state(self) -> T:
@@ -30,13 +38,13 @@ class StateMachine(Generic[T, U]):
 
     def process_event(self, event: U) -> None:
         logger.debug(f"Event received: {event.name}")
-        transition = self._transition_map[self._current_state, event]
+        transition = self._transition_map[TransitionFrom(self._current_state, event)]
         for action in transition.actions:
             action()
         self.transition_to(transition.to_state)
         self._current_state = transition.to_state
 
-    def add_transition(self, t_from: TRANSITION_FROM, t_to: TRANSITION_TO) -> None:
+    def add_transition(self, t_from: TransitionFrom[T, U], t_to: TransitionTo[T]) -> None:
         self._transition_map[t_from] = t_to
 
     def transition_to(self, state: T) -> None:

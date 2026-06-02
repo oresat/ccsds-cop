@@ -6,11 +6,11 @@ import threading
 from collections import deque
 from typing import TYPE_CHECKING
 
-from common.fsm import StateMachine
-from common.service import CopService
-from common.util import logger
 from spacepackets.uslp import BypassSequenceControlFlag, ProtocolCommandFlag
 
+from ..common.fsm import StateMachine, TransitionTo
+from ..common.service import CopService
+from ..common.util import logger
 from ._fop1_events import FopEvent
 from .transitions import _transitions
 from .types import (
@@ -37,7 +37,7 @@ from .types import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from common.ccsds import ControlWord, Gvcid
+    from ..common.ccsds import ControlWord, Gvcid
 
 
 class Fop1(CopService):
@@ -69,16 +69,17 @@ class Fop1(CopService):
         self.timeout_type: int = 0
         self.suspend_state: int = 0
 
-        self._timer = None
+        self._timer: threading.Timer | None = None
         self._request_id: int = 0
         self._gvcid: Gvcid = gvcid
         self._pending_directive_request: DirectiveRequest | None = None
-        self._pending_fdu: RequestToTransferFdu = None
+        self._pending_fdu: RequestToTransferFdu | None = None
 
         self._fsm = StateMachine[FopState, FopEvent](FopState.INITIAL)
         for tr_from, tr_to in _transitions.items():
-            state, action_str = tr_to
-            self._fsm.add_transition(tr_from, (state, getattr(self, action_str)))
+            state, action_strs = tr_to
+            actions = [getattr(self, name) for name in action_strs]
+            self._fsm.add_transition(tr_from, TransitionTo(state, actions))
 
     @property
     def state(self) -> FopState:
@@ -230,7 +231,8 @@ class Fop1(CopService):
         self._timer.start()
 
     def cancel_timer(self) -> None:
-        self._timer.cancel()
+        if self._timer is not None:
+            self._timer.cancel()
 
     def _on_timer_expired(self) -> None:
         if self.transmission_count < self.transmission_limit:
@@ -257,7 +259,9 @@ class Fop1(CopService):
         self._respond_to_fdu(NotificationType.REJECT)
 
     def _respond_to_fdu(self, n_t: NotificationType) -> None:
-        self.interface.to_higher.appendleft(
+        if self._pending_fdu is None:
+            raise RuntimeError("called without pending fdu")
+        self.interface.to_higher.try_appendleft(
             TransferNotification(
                 gvcid=self._pending_fdu.gvcid,
                 request_id=self._pending_fdu.request_id,
@@ -267,13 +271,13 @@ class Fop1(CopService):
 
     def alert(self, alert_type: Alert) -> None:
         logger.debug(f"Alert received: {alert_type}")
-        self.interface.to_higher.appendleft(
+        self.interface.to_higher.try_appendleft(
             AsyncNotification(self._gvcid, AsyncNotificationType.ALERT, alert_type)
         )
 
     def suspend(self) -> None:
         self.suspend_state = self.state.value
-        self.interface.to_higher.appendleft(
+        self.interface.to_higher.try_appendleft(
             AsyncNotification(self._gvcid, AsyncNotificationType.SUSPEND, None)
         )
 
@@ -318,14 +322,14 @@ class Fop1(CopService):
         self._sent_queue.clear()
         for entry in entries:
             notif = TransferNotification(
-                entry.request_id, entry.gvcid, NotificationType.POSITIVE_CONFIRM
+                entry.gvcid, entry.request_id, NotificationType.POSITIVE_CONFIRM
             )
-            self.interface.to_higher.appendleft(notif)
+            self.interface.to_higher.try_appendleft(notif)
             self.nn_r = (self.nn_r + 1) & 0xFF
         self.transmission_count = 1
 
     def initiate_retransmission(self) -> None:
-        self.lower_interface.signal.appendleft(AbortRequest(self._gvcid))
+        self.lower_interface.signal.try_appendleft(AbortRequest(self._gvcid))
         self.transmission_count += 1
         self.start_timer()
         for entry in self._sent_queue:
@@ -336,7 +340,7 @@ class Fop1(CopService):
             entry = self._sent_queue[0]
             if entry.to_be_retransmitted:
                 self.bc_out = False
-                self.lower_interface.signal.appendleft(
+                self.lower_interface.signal.try_appendleft(
                     TransmitRequestForFrame(
                         entry.gvcid,
                         BypassSequenceControlFlag.EXPEDITED_QOS,
@@ -351,7 +355,7 @@ class Fop1(CopService):
             result = next((entry for entry in self._sent_queue if entry.to_be_retransmitted), None)
             if result is not None:
                 self.ad_out = False
-                self.lower_interface.signal.appendleft(
+                self.lower_interface.signal.try_appendleft(
                     TransmitRequestForFrame(
                         result.gvcid,
                         BypassSequenceControlFlag.SEQ_CTRLD_QOS,
@@ -365,8 +369,10 @@ class Fop1(CopService):
                 if self._wait_queue is not None and self._wait_queue.service_type == ServiceType.AD:
                     waiting_fdu = self._wait_queue
                     self._wait_queue = None
-                    self.interface.to_higher.appendleft(
-                        TransferNotification(waiting_fdu.request_id, NotificationType.ACCEPT)
+                    self.interface.to_higher.try_appendleft(
+                        TransferNotification(
+                            waiting_fdu.gvcid, waiting_fdu.request_id, NotificationType.ACCEPT
+                        )
                     )
                     self.transmit_type_ad_frame(waiting_fdu)
 
@@ -392,7 +398,9 @@ class Fop1(CopService):
         self._pending_directive_request = None
 
     def _respond_to_directive(self, n_t: NotificationType) -> None:
-        self.interface.to_higher.appendleft(
+        if self._pending_directive_request is None:
+            raise RuntimeError("called without pending directive")
+        self.interface.to_higher.try_appendleft(
             DirectiveNotification(
                 self._pending_directive_request.gvcid,
                 self._pending_directive_request.request_id,
@@ -442,7 +450,7 @@ class Fop1(CopService):
         self._sent_queue.append(sent_entry)
         self.start_timer()
         self.ad_out = False
-        self.interface.to_lower.appendleft(
+        self.interface.to_lower.try_appendleft(
             TransmitRequestForFrame(
                 BypassSequenceControlFlag.SEQ_CTRLD_QOS,
                 ProtocolCommandFlag.USER_DATA,
@@ -452,7 +460,7 @@ class Fop1(CopService):
 
     def transmit_type_bd_frame(self) -> None:
         self.bd_out = False
-        self.interface.to_lower.appendleft(
+        self.interface.to_lower.try_appendleft(
             TransmitRequestForFrame(
                 BypassSequenceControlFlag.EXPEDITED_QOS,
                 ProtocolCommandFlag.USER_DATA,
@@ -463,7 +471,7 @@ class Fop1(CopService):
 
     def transmit_unlock_bc_frame(self) -> None:
         self.bd_out = False
-        self.interface.to_lower.appendleft(
+        self.interface.to_lower.try_appendleft(
             TransmitRequestForFrame(
                 BypassSequenceControlFlag.EXPEDITED_QOS,
                 ProtocolCommandFlag.PROTOCOL_INFORMATION,
@@ -477,7 +485,7 @@ class Fop1(CopService):
             logger.error("Missing Directive Request")
             return
         self.bd_out = False
-        self.interface.to_lower.appendleft(
+        self.interface.to_lower.try_appendleft(
             TransmitRequestForFrame(
                 BypassSequenceControlFlag.EXPEDITED_QOS,
                 ProtocolCommandFlag.PROTOCOL_INFORMATION,
@@ -489,6 +497,8 @@ class Fop1(CopService):
         )
 
     def add_to_wait_queue(self) -> None:
+        if self._pending_fdu is None:
+            raise RuntimeError("called without pending fdu")
         self._wait_queue = WaitQueueEntry(
             request_id=self._pending_fdu.request_id,
             gvcid=self._pending_fdu.gvcid,

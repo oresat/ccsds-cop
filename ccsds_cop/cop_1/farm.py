@@ -2,7 +2,12 @@ import threading
 from dataclasses import dataclass
 from enum import Enum, unique
 
-from spacepackets.uslp import BypassSequenceControlFlag, ProtocolCommandFlag, TransferFrame
+from spacepackets.uslp import (
+    BypassSequenceControlFlag,
+    ProtocolCommandFlag,
+    TransferFrame,
+    TruncatedPrimaryHeader,
+)
 
 from .common.ccsds import Gvcid
 from .common.service import CopService, Indication, ServiceInterface
@@ -167,12 +172,14 @@ class Farm1(CopService):
             True if the frame was successfully processed (either 'ACCEPT' action or no action),
             False for 'DISCARD'
         """
+        if isinstance(frame.header, TruncatedPrimaryHeader):
+            raise TypeError("Truncated headers are unsupported")
         if frame.header.bypass_seq_ctrl_flag == BypassSequenceControlFlag.EXPEDITED_QOS:
             if frame.header.prot_ctrl_cmd_flag == ProtocolCommandFlag.USER_DATA:
                 # E6 Type-BD, bypass COP
-                self.higher_interface.buffer.append(frame, force=True)
+                self.higher_interface.buffer.append(frame)
                 gvcid = Gvcid(0b1100, frame.header.scid, frame.header.vcid)
-                self.higher_interface.signal.append(FduArrivedIndication(gvcid), force=True)
+                self.higher_interface.signal.append(FduArrivedIndication(gvcid))
                 self.b_counter = (self.b_counter + 1) % 4
             else:
                 # Type-BC, check commands
@@ -209,14 +216,14 @@ class Farm1(CopService):
                 return False
             ns: int = frame.header.vcf_count
             if ns == self.receiver_frame_sequence_number:
-                if not self.higher_interface.buffer.appendleft(frame):
+                if not self.higher_interface.buffer.try_appendleft(frame):
                     # E2 No buffer is available
                     self.retransmit = True
                     self.wait = True
                     return False
                 # E1 buffer is available
                 gvcid = Gvcid(0b1100, frame.header.scid, frame.header.vcid)
-                if not self.higher_interface.signal.appendleft(FduArrivedIndication(gvcid)):
+                if not self.higher_interface.signal.try_appendleft(FduArrivedIndication(gvcid)):
                     logger.error("Unable to append Arrived Indication")
                 if self.state == FarmState.OPEN:
                     self.receiver_frame_sequence_number = (

@@ -13,13 +13,13 @@ class BoundedDeque(deque[T]):
         super().__init__()
         self._maxlen = maxlen
 
-    def append(self, item: T, *, force: bool = False) -> bool:
-        if not force and len(self) >= self._maxlen:
+    def try_append(self, item: T) -> bool:
+        if len(self) >= self._maxlen:
             return False
         super().append(item)
         return True
 
-    def appendleft(self, item: T) -> bool:
+    def try_appendleft(self, item: T) -> bool:
         if len(self) >= self._maxlen:
             return False
         super().appendleft(item)

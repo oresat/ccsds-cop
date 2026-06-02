@@ -9,6 +9,7 @@ from spacepackets.uslp import (
     TfdzConstructionRules,
     TransferFrame,
     TransferFrameDataField,
+    TruncatedPrimaryHeader,
     UslpProtocolIdentifier,
 )
 
@@ -195,12 +196,14 @@ class TestFarm1:
             < invalid_ns
             <= farm1.receiver_frame_sequence_number + farm1.positive_window_width - 1
         ), "Failed to calculate invalid N(S) sequence number for this test"
+        assert not isinstance(invalid_seq_frame.header, TruncatedPrimaryHeader)
         invalid_seq_frame.header.vcf_count = invalid_ns
         assert not farm1._process_frame(invalid_seq_frame)
         assert farm1.retransmit
 
     def test_lockout(self, farm1: Farm1, invalid_seq_frame: TransferFrame) -> None:
         farm1.receiver_frame_sequence_number = 0
+        assert not isinstance(invalid_seq_frame.header, TruncatedPrimaryHeader)
         invalid_seq_frame.header.vcf_count = farm1.sliding_window_width // 2
         assert not farm1._process_frame(invalid_seq_frame)
         assert farm1.lockout
@@ -212,6 +215,7 @@ class TestFarm1:
         # see the note under CCSDS 232.1-B-2 6.2.1 GENERAL
         # set V(R) to predictable value first
         assert farm1._process_frame(frame_type_bc)
+        assert not isinstance(invalid_seq_frame.header, TruncatedPrimaryHeader)
         invalid_seq_frame.header.vcf_count = 60000
         assert not farm1._process_frame(invalid_seq_frame)
 

@@ -4,13 +4,14 @@ from dataclasses import dataclass
 from enum import Enum, auto, unique
 from typing import TYPE_CHECKING
 
-from common.fsm import CopState
-from common.service import Indication
-from common.util import BoundedDeque
+from ..common.fsm import CopState
+from ..common.service import Indication
+from ..common.util import BoundedDeque
 
 if TYPE_CHECKING:
-    from common.ccsds import Gvcid
     from spacepackets.uslp import BypassSequenceControlFlag, ProtocolCommandFlag
+
+    from ..common.ccsds import Gvcid
 
 
 @unique
