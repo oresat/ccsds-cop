@@ -73,3 +73,11 @@ ignore = [
     "PLR0915", # Too many statements
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Test specific lint ignores. These files are not part of the main library
+"tests/**" = [
+    "S101",   # assert - pytest prefers plain assert
+    "SLF001", # Private member accessed - Ideally we should test only the public
+              # interface but sometimes it's hard to get the info without it
+    "D",      # Docstrings - tests dont really need them
+]

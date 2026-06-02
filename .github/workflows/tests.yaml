@@ -33,7 +33,7 @@ jobs:
 
     - name: Lint with Ruff
       if: always() && steps.dependencies.conclusion == 'success'
-      run: ruff check ccsds_cop
+      run: ruff check
 
     - name: Check format with Ruff
       if: always() && steps.dependencies.conclusion == 'success'
@@ -41,7 +41,7 @@ jobs:
 
     - name: Type check with mypy
       if: always() && steps.dependencies.conclusion == 'success'
-      run: mypy ccsds_cop
+      run: mypy ccsds_cop tests
 
     - name: Run unittests
       if: always() && steps.dependencies.conclusion == 'success'
