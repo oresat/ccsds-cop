@@ -1,3 +1,4 @@
+"""Base classes for COP-1 services."""
 from dataclasses import dataclass
 from math import ceil
 from typing import TYPE_CHECKING
@@ -89,4 +90,5 @@ class CopService:
         self.higher_interface: ServiceInterface = ServiceInterface(buffer_size)
 
     def tick(self) -> None:
+        """Tick the state machine of the service."""
         raise NotImplementedError

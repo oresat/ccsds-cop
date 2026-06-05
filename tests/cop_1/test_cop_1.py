@@ -153,7 +153,7 @@ class TestFarm1:
         assert farm1._process_frame(frame_type_bc)
         assert farm1.b_counter == 1
         assert not farm1.retransmit
-        assert farm1.receiver_frame_sequence_number == 5
+        assert farm1.v_r == 5
         assert farm1.state == FarmState.OPEN
 
     def test_process_invalid_bc(self, farm1: Farm1, invalid_type_bc: TransferFrame) -> None:
@@ -167,7 +167,7 @@ class TestFarm1:
 
     def test_process_ad(self, farm1: Farm1, frame_type_ad: TransferFrame) -> None:
         assert farm1._process_frame(frame_type_ad)
-        assert farm1.receiver_frame_sequence_number == 1
+        assert farm1.v_r == 1
         assert len(farm1.higher_interface.buffer) == 1
 
     def test_process_ac(self, farm1: Farm1, invalid_type_ac: TransferFrame) -> None:
@@ -188,13 +188,13 @@ class TestFarm1:
         # set V(R) to predictable value first
         assert farm1._process_frame(frame_type_bc)
         invalid_ns = (
-            farm1.receiver_frame_sequence_number
-            + (farm1.receiver_frame_sequence_number + farm1.positive_window_width - 1) // 2
+                farm1.v_r
+                + (farm1.v_r + farm1.positive_window_width - 1) // 2
         )
         assert (
-            farm1.receiver_frame_sequence_number
-            < invalid_ns
-            <= farm1.receiver_frame_sequence_number + farm1.positive_window_width - 1
+                farm1.v_r
+                < invalid_ns
+                <= farm1.v_r + farm1.positive_window_width - 1
         ), "Failed to calculate invalid N(S) sequence number for this test"
         assert not isinstance(invalid_seq_frame.header, TruncatedPrimaryHeader)
         invalid_seq_frame.header.vcf_count = invalid_ns
@@ -202,7 +202,7 @@ class TestFarm1:
         assert farm1.retransmit
 
     def test_lockout(self, farm1: Farm1, invalid_seq_frame: TransferFrame) -> None:
-        farm1.receiver_frame_sequence_number = 0
+        farm1.v_r = 0
         assert not isinstance(invalid_seq_frame.header, TruncatedPrimaryHeader)
         invalid_seq_frame.header.vcf_count = farm1.sliding_window_width // 2
         assert not farm1._process_frame(invalid_seq_frame)

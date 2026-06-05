@@ -1,3 +1,4 @@
+"""CCSDS COP-1 Frame Operation Procedure (FOP-1)."""
 from ._fop1_events import FopEvent
 from .fop import Fop1
 from .types import (

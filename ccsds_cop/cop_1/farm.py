@@ -1,3 +1,4 @@
+"""CCSDS COP-1 Frame Acceptance and Reporting Mechanism (FARM-1)."""
 import threading
 from dataclasses import dataclass
 from enum import Enum, unique
@@ -25,6 +26,8 @@ class FarmState(Enum):
 
 @unique
 class FarmAction(Enum):
+    """FARM-1 action types."""
+
     ACCEPT = 0
     DISCARD = 1
     REPORT = 2
@@ -33,14 +36,12 @@ class FarmAction(Enum):
 
 @dataclass
 class FduArrivedIndication(Indication):
-    pass
+    """An indication to FARM-1's Higher Procedures to indicate the arrival of a new FDU."""
 
 
 @dataclass
 class ValidFrameArrivedIndication(Indication):
-    """Indicate from a lower procedure that a valid Transfer Frame has been placed in the
-    buffer.
-    """
+    """Indicate from a lower procedure that a valid Transfer Frame has been placed in the buffer."""
 
 
 class FarmHigherServiceInterface(ServiceInterface):
@@ -54,27 +55,79 @@ class FarmHigherServiceInterface(ServiceInterface):
     """
 
     def __init__(self, buffer_size: int = 10, signal_size: int = 0) -> None:
+        """Initialize the FarmHigherServiceInterface.
+
+        Parameters
+        ----------
+        buffer_size
+            The size of the buffer, in FDUs.
+        signal_size
+            The size of the signal queue.
+        """
         super().__init__(buffer_size, signal_size)
         self.buffer_release = threading.Event()
 
 
 class Farm1(CopService):
+    """FARM-1, the receiving end of COP-1.
+
+    Attributes
+    ----------
+    higher_interface
+        The interface to the FARM Higher Procedures.
+    state
+        The state of FARM-1.
+    lockout
+        The Lockout_Flag, set whenever the state machine is in Lockout state.
+    wait
+        The Wait_Flag, set whenever the state machine is in Wait state.
+    retransmit
+        The Retransmit_Flag, set whenever the state machine knows that a Type-AD frame has been lost
+        or discarded.
+    v_r
+        The Receiver_Frame_Sequence_Number, usually denoted V(R). This is the expected value of N(S)
+        to be seen in the next Transfer Frame,
+    b_counter
+        The FARM-B_Counter, incremented whenever a type B frame arrives.
+    positive_window_width
+        The width of the positive area of the sliding window.
+    negative_window_width
+        The width of the negative area of the sliding window.
+    sliding_window_width
+        The width of the sliding window.
+    """
+
     def __init__(
-        self,
-        w: int,
-        pw: int = 0,
-        nw: int = 0,
-        vcf_count_length: int = 1,
-        *,
-        allow_retransmission: bool = True,
+            self,
+            w: int,
+            pw: int = 0,
+            nw: int = 0,
+            vcf_count_length: int = 1,
+            *,
+            allow_retransmission: bool = True,
     ) -> None:
+        """Initialize FARM-1.
+
+        Parameters
+        ----------
+        w
+            FARM_Sliding_Window_Width ('W')
+        pw
+            FARM_Positive_Window_Width ('PW')
+        nw
+            FARM_Negative_Window_Width ('NW')
+        vcf_count_length
+            The Virtual Channel Frame length used for packets on this FARM service's channel.
+        allow_retransmission
+            Specify if retransmission is allowed on this channel. See CCSDS 232.1-B2 § 6.1.8.3
+        """
         super().__init__()
         self.higher_interface: FarmHigherServiceInterface = FarmHigherServiceInterface()
         self.state: FarmState = FarmState.OPEN
         self.lockout: bool = False
         self.wait: bool = False
         self.retransmit: bool = False
-        self.receiver_frame_sequence_number: int = 0
+        self.v_r: int = 0
         self.b_counter: int = 0
         self.positive_window_width: int
         self.negative_window_width: int
@@ -103,6 +156,7 @@ class Farm1(CopService):
             self.negative_window_width = nw
 
     def tick(self) -> None:
+        """Tick the FARM-1 state machine."""
         if self.higher_interface.buffer_release.is_set():
             # E10 Buffer release signal
             if self.state != FarmState.OPEN:
@@ -122,14 +176,10 @@ class Farm1(CopService):
             raise TypeError(f"Unknown Farm1 signal indication type {type(notif)}")
 
     def is_in_positive_window(self, ns: int) -> bool:
-        """Check if the given sequence number is in the positive window, and does **not** contain
-        the expected Frame Sequence Number.
+        """Check if the given sequence number is in the positive window.
 
-        If it is desired to check if it contains the Frame Sequence Number,
-        check N(S) = V(R) directly::
-
-            if self.receiver_frame_sequence_number == ns:
-                print("The window contains this frame's sequence number")
+        This check does **not** contain the expected Frame Sequence Number. For that case, check if
+        they are equal directly.
 
         Parameters
         ----------
@@ -142,24 +192,48 @@ class Farm1(CopService):
             True if N(S) is in the positive window, False otherwise
         """
         return (
-            0
-            < (ns - self.receiver_frame_sequence_number) % self._modulus
-            < self.positive_window_width
+                0
+                < (ns - self.v_r) % self._modulus
+                < self.positive_window_width
         )
 
     def is_in_negative_window(self, ns: int) -> bool:
+        """Check if a frame sequence number N(S) is in the negative area of the sliding window.
+
+        Parameters
+        ----------
+        ns
+            The Transfer Frame's sequence number, N(S).
+
+        Returns
+        -------
+        bool
+            True if N(S) is in the negative window, False otherwise.
+        """
         return (
-            self.receiver_frame_sequence_number - ns
+                self.v_r - ns
         ) % self._modulus <= self.negative_window_width
 
     def is_outside_window(self, ns: int) -> bool:
+        """Check if a frame sequence number N(S) is outside the sliding window.
+
+        Parameters
+        ----------
+        ns
+            The Transfer Frame's sequence number, N(S).
+
+        Returns
+        -------
+        bool
+            True if N(S) is outside the window, False otherwise.
+        """
         return not self.is_in_positive_window(ns) and not self.is_in_negative_window(ns)
 
     def _process_frame(self, frame: TransferFrame) -> bool:
         """Process a transfer frame.
 
         It is assumed, as specified by CCSDS 232.1-B, that any frames
-        passed to this method have already passed validation (6.3.2.1 Transfer Frame Validation).
+        passed to this method have already passed validation (§ 6.3.2.1 Transfer Frame Validation).
 
         Parameters
         ----------
@@ -201,11 +275,11 @@ class Farm1(CopService):
                     self.b_counter = (self.b_counter + 1) % 4
                     if self.state == FarmState.OPEN:
                         self.retransmit = False
-                        self.receiver_frame_sequence_number = data[2]
+                        self.v_r = data[2]
                     elif self.state == FarmState.WAIT:
                         self.retransmit = False
                         self.wait = False
-                        self.receiver_frame_sequence_number = data[2]
+                        self.v_r = data[2]
                         self.state = FarmState.OPEN
                 else:
                     logger.error("Invalid Type-BC directive. Discarding frame")
@@ -215,7 +289,7 @@ class Farm1(CopService):
                 logger.error("Discarding frame (E9): invalid 'Type-AC' frame")
                 return False
             ns: int = frame.header.vcf_count
-            if ns == self.receiver_frame_sequence_number:
+            if ns == self.v_r:
                 if not self.higher_interface.buffer.try_appendleft(frame):
                     # E2 No buffer is available
                     self.retransmit = True
@@ -226,9 +300,7 @@ class Farm1(CopService):
                 if not self.higher_interface.signal.try_appendleft(FduArrivedIndication(gvcid)):
                     logger.error("Unable to append Arrived Indication")
                 if self.state == FarmState.OPEN:
-                    self.receiver_frame_sequence_number = (
-                        self.receiver_frame_sequence_number + 1
-                    ) % self._modulus
+                    self.v_r = (self.v_r + 1) % self._modulus
                     self.retransmit = False
                 elif self.state == FarmState.WAIT:
                     raise RuntimeError(

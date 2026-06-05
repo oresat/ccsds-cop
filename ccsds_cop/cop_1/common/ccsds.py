@@ -1,3 +1,4 @@
+"""CCSDS definition used by, but not defined in the COP-1 standard."""
 import struct
 from dataclasses import dataclass
 
@@ -33,10 +34,12 @@ class Gvcid:
             raise ValueError(f"VCID must be 6 bits, got {self.vcid}")
 
     def to_int(self) -> int:
+        """Pack the GVCID into an integer."""
         return (self.tfvn << 22) | (self.scid << 6) | self.vcid
 
     @classmethod
     def from_int(cls, value: int) -> "Gvcid":
+        """Unpack the GVCID from an integer."""
         return cls(
             tfvn=(value >> 22) & 0xF,
             scid=(value >> 6) & 0xFFFF,
@@ -62,6 +65,10 @@ class ControlWord:
     report_value: int = 0  # 8 bits
 
     def pack(self) -> bytes:
+        """Pack the control word into bytes.
+
+        The CLCWs are single 32-bit integers.
+        """
         word = 0
         word |= (self.control_word_type & 0x1) << 31
         word |= (self.version_number & 0x3) << 29
@@ -79,6 +86,7 @@ class ControlWord:
 
     @classmethod
     def unpack(cls, data: bytes) -> "ControlWord":
+        """Unpack the control word from bytes."""
         if len(data) < 4:
             raise ValueError(f"CLCW requires 4 bytes, got {len(data)}")
         (word,) = struct.unpack(">I", data[:4])
