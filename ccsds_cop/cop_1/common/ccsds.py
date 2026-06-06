@@ -1,10 +1,12 @@
+"""CCSDS definition used by, but not defined in the COP-1 standard."""
+
 import struct
 from dataclasses import dataclass
 
 
 @dataclass
 class Gvcid:
-    """Global Virtual Channel Identifier
+    """Global Virtual Channel Identifier.
 
     CCSDS 732.1-B
     GVCID = TFVN + SCID + VCID
@@ -23,7 +25,8 @@ class Gvcid:
     scid: int  # 16 bits
     vcid: int  # 6 bits
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Check that the fields are valid."""
         if not 0 <= self.tfvn <= 0xF:
             raise ValueError(f"TFVN must be 4 bits, got {self.tfvn}")
         if not 0 <= self.scid <= 0xFFFF:
@@ -32,10 +35,12 @@ class Gvcid:
             raise ValueError(f"VCID must be 6 bits, got {self.vcid}")
 
     def to_int(self) -> int:
+        """Pack the GVCID into an integer."""
         return (self.tfvn << 22) | (self.scid << 6) | self.vcid
 
     @classmethod
     def from_int(cls, value: int) -> "Gvcid":
+        """Unpack the GVCID from an integer."""
         return cls(
             tfvn=(value >> 22) & 0xF,
             scid=(value >> 6) & 0xFFFF,
@@ -61,6 +66,10 @@ class ControlWord:
     report_value: int = 0  # 8 bits
 
     def pack(self) -> bytes:
+        """Pack the control word into bytes.
+
+        The CLCWs are single 32-bit integers.
+        """
         word = 0
         word |= (self.control_word_type & 0x1) << 31
         word |= (self.version_number & 0x3) << 29
@@ -78,6 +87,7 @@ class ControlWord:
 
     @classmethod
     def unpack(cls, data: bytes) -> "ControlWord":
+        """Unpack the control word from bytes."""
         if len(data) < 4:
             raise ValueError(f"CLCW requires 4 bytes, got {len(data)}")
         (word,) = struct.unpack(">I", data[:4])

@@ -46,6 +46,8 @@ ignore = [
     "D213",
     # Conflicts with formatter
     "COM812", # missing-trailing-comma
+    # Subset of other options
+    "D400",  # Subset of D415, first line should end in period, comma, or exclamation
     # Stylistic choices for quote-style = preserve
     "Q000",  # Single quotes found but double quotes preferred
     "Q002",  # Single quote docstring found but double quotes preferred
@@ -56,10 +58,31 @@ ignore = [
     "EM102", # Exception must not use an f-string literal
     "FIX",  # flake8-fixme
     "TD",  # flake8-todos
+    "TID252", # Prefer absolute imports over relative imports from parent modules
     # This might be good to turn on later, right now I'm on the fence about it
     "TRY003",  # Avoid specifying long messages outside the exception class
-    # Another one that might be good later but for now is too argessive. Many of
+    # Another one that might be good later but for now is too aggressive. Many of
     # the numbers it flags are obvious from context.
     "PLR2004",  # Magic value used in comparison
+    # Same boat, ostensibly nice but too many false positives
+    "ERA001",  # Found commented-out code
+    # Possibly FIXME later, the functions they apply to are already pretty minimal
+    # while sticking to the spec. The spec is complex.
+    "C901",  # Function is too complex
+    "PLR0911", # Too many return statements
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many statements
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Test specific lint ignores. These files are not part of the main library
+"tests/**" = [
+    "S101",   # assert - pytest prefers plain assert
+    "SLF001", # Private member accessed - Ideally we should test only the public
+              # interface but sometimes it's hard to get the info without it
+    "D",      # Docstrings - tests dont really need them
+]
+
+[[tool.mypy.overrides]]
+module = ["spacepackets.uslp.*"]
+follow_untyped_imports = true
