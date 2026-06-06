@@ -187,15 +187,10 @@ class TestFarm1:
     ) -> None:
         # set V(R) to predictable value first
         assert farm1._process_frame(frame_type_bc)
-        invalid_ns = (
-                farm1.v_r
-                + (farm1.v_r + farm1.positive_window_width - 1) // 2
+        invalid_ns = farm1.v_r + (farm1.v_r + farm1.positive_window_width - 1) // 2
+        assert farm1.v_r < invalid_ns <= farm1.v_r + farm1.positive_window_width - 1, (
+            "Failed to calculate invalid N(S) sequence number for this test"
         )
-        assert (
-                farm1.v_r
-                < invalid_ns
-                <= farm1.v_r + farm1.positive_window_width - 1
-        ), "Failed to calculate invalid N(S) sequence number for this test"
         assert not isinstance(invalid_seq_frame.header, TruncatedPrimaryHeader)
         invalid_seq_frame.header.vcf_count = invalid_ns
         assert not farm1._process_frame(invalid_seq_frame)
