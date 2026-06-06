@@ -283,6 +283,8 @@ class Farm1(CopService):
             if frame.header.prot_ctrl_cmd_flag != ProtocolCommandFlag.USER_DATA:
                 logger.error("Discarding frame (E9): invalid 'Type-AC' frame")
                 return False
+            if not frame.header.vcf_count:
+                raise TypeError("Header does not contain a VCF count")
             ns: int = frame.header.vcf_count
             if ns == self.v_r:
                 if not self.higher_interface.buffer.try_appendleft(frame):

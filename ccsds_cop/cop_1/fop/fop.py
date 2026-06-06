@@ -601,9 +601,11 @@ class Fop1(CopService):
         self.ad_out = False
         self.interface.to_lower.try_appendleft(
             TransmitRequestForFrame(
-                BypassSequenceControlFlag.SEQ_CTRLD_QOS,
-                ProtocolCommandFlag.USER_DATA,
-                n_s,
+                gvcid=entry.gvcid,
+                bypass_flag=BypassSequenceControlFlag.SEQ_CTRLD_QOS,
+                command_flag=ProtocolCommandFlag.USER_DATA,
+                v_s=n_s,
+                tfdf=entry.fdu,
             )
         )
 
@@ -612,13 +614,17 @@ class Fop1(CopService):
 
         This is a parameterless state machine event.
         """
+        if self._pending_fdu is None:
+            logger.error("Transmit BD called without pending FDU")
+            return
         self.bd_out = False
         self.interface.to_lower.try_appendleft(
             TransmitRequestForFrame(
-                BypassSequenceControlFlag.EXPEDITED_QOS,
-                ProtocolCommandFlag.USER_DATA,
-                0,  # seq num not applicable for BD
-                self._pending_fdu.fdu,
+                gvcid=self._gvcid,
+                bypass_flag=BypassSequenceControlFlag.EXPEDITED_QOS,
+                command_flag=ProtocolCommandFlag.USER_DATA,
+                v_s=0,  # seq num not applicable for BD
+                tfdf=self._pending_fdu.fdu,
             )
         )
 
@@ -630,10 +636,11 @@ class Fop1(CopService):
         self.bd_out = False
         self.interface.to_lower.try_appendleft(
             TransmitRequestForFrame(
-                BypassSequenceControlFlag.EXPEDITED_QOS,
-                ProtocolCommandFlag.PROTOCOL_INFORMATION,
-                0,
-                b"\x00",
+                gvcid=self._gvcid,
+                bypass_flag=BypassSequenceControlFlag.EXPEDITED_QOS,
+                command_flag=ProtocolCommandFlag.PROTOCOL_INFORMATION,
+                v_s=0,
+                tfdf=b"\x00",
             )
         )
 
@@ -645,14 +652,15 @@ class Fop1(CopService):
         if not self._pending_directive_request:
             logger.error("Missing Directive Request")
             return
-        self.bd_out = False
+        self.bc_out = False
         self.interface.to_lower.try_appendleft(
             TransmitRequestForFrame(
-                BypassSequenceControlFlag.EXPEDITED_QOS,
-                ProtocolCommandFlag.PROTOCOL_INFORMATION,
-                0,
-                bytes(
-                    [0x82, 0x00, self._pending_directive_request.directive_qualifier.to_bytes(1)]
+                gvcid=self._pending_directive_request.gvcid,
+                bypass_flag=BypassSequenceControlFlag.EXPEDITED_QOS,
+                command_flag=ProtocolCommandFlag.PROTOCOL_INFORMATION,
+                v_s=0,
+                tfdf=bytes(
+                    [0x82, 0x00, self._pending_directive_request.directive_qualifier],
                 ),
             )
         )
