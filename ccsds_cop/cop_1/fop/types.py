@@ -1,4 +1,5 @@
 """Various type definitions for FOP-1."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

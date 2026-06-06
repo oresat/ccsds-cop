@@ -1,4 +1,5 @@
 """Other utilities."""
+
 import logging
 from collections import deque
 from typing import TypeVar

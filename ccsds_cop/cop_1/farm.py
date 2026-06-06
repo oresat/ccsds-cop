@@ -1,4 +1,5 @@
 """CCSDS COP-1 Frame Acceptance and Reporting Mechanism (FARM-1)."""
+
 import threading
 from dataclasses import dataclass
 from enum import Enum, unique
@@ -98,13 +99,13 @@ class Farm1(CopService):
     """
 
     def __init__(
-            self,
-            w: int,
-            pw: int = 0,
-            nw: int = 0,
-            vcf_count_length: int = 1,
-            *,
-            allow_retransmission: bool = True,
+        self,
+        w: int,
+        pw: int = 0,
+        nw: int = 0,
+        vcf_count_length: int = 1,
+        *,
+        allow_retransmission: bool = True,
     ) -> None:
         """Initialize FARM-1.
 
@@ -191,11 +192,7 @@ class Farm1(CopService):
         bool
             True if N(S) is in the positive window, False otherwise
         """
-        return (
-                0
-                < (ns - self.v_r) % self._modulus
-                < self.positive_window_width
-        )
+        return 0 < (ns - self.v_r) % self._modulus < self.positive_window_width
 
     def is_in_negative_window(self, ns: int) -> bool:
         """Check if a frame sequence number N(S) is in the negative area of the sliding window.
@@ -210,9 +207,7 @@ class Farm1(CopService):
         bool
             True if N(S) is in the negative window, False otherwise.
         """
-        return (
-                self.v_r - ns
-        ) % self._modulus <= self.negative_window_width
+        return (self.v_r - ns) % self._modulus <= self.negative_window_width
 
     def is_outside_window(self, ns: int) -> bool:
         """Check if a frame sequence number N(S) is outside the sliding window.

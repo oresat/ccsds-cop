@@ -1,4 +1,5 @@
 """Finite State Machine implementation for COP-1 service state machines."""
+
 from collections.abc import Callable
 from enum import Enum, IntEnum
 from typing import Generic, NamedTuple, TypeVar

@@ -1,4 +1,5 @@
 """The FOP-1 service implementation."""
+
 # ruff: noqa: PLR5501 (use elif instead of if) - The code matches the spec
 # better when written this way
 from __future__ import annotations
@@ -76,10 +77,10 @@ class Fop1(CopService):
     """
 
     def __init__(
-            self,
-            gvcid: Gvcid,
-            k: int = 10,
-            timer_initial_value: int = 3,
+        self,
+        gvcid: Gvcid,
+        k: int = 10,
+        timer_initial_value: int = 3,
     ) -> None:
         """Initialize FOP-1.
 
@@ -674,6 +675,7 @@ class Fop1(CopService):
 
 # generate methods for alerts since transitions are parameterless
 for at in Alert:
+
     def make_alert(alert_type: Alert) -> Callable[[Fop1], None]:
         """Create the alert function.
 
@@ -687,6 +689,5 @@ for at in Alert:
             self.alert(alert_type)
 
         return action
-
 
     setattr(Fop1, f"_alert_{at.name}", make_alert(at))

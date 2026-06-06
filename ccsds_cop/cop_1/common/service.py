@@ -1,4 +1,5 @@
 """Base classes for COP-1 services."""
+
 from dataclasses import dataclass
 from math import ceil
 from typing import TYPE_CHECKING

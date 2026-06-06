@@ -2,6 +2,7 @@
 
 This file should be as close to pure data as possible.
 """
+
 from ..common.fsm import TransitionFrom
 from ._fop1_events import FopEvent
 from .types import FopState

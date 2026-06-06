@@ -1,4 +1,5 @@
 """CCSDS definition used by, but not defined in the COP-1 standard."""
+
 import struct
 from dataclasses import dataclass
 
