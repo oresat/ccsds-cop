@@ -48,7 +48,7 @@ _e37 = ["accept_directive", "set_t1_initial", "confirm_directive"]
 _e38 = ["accept_directive", "set_transmission_limit", "confirm_directive"]
 _e39 = ["accept_directive", "set_tt", "confirm_directive"]
 _e41 = ["_ready_ad", "look_for_fdu"]
-_e45 = ["_ready_bd", "accept"]
+_e45 = ["_ready_bd", "accept_fdu"]
 
 _transitions: dict[TransitionFrom[FopState, FopEvent], tuple[FopState, list[str]]] = {
     # S1
