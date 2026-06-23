@@ -312,6 +312,8 @@ class Fop1(CopService):
             self._timer.cancel()
 
     def _on_timer_expired(self) -> None:
+        if self.state == FopState.INITIAL:
+            return
         if self.transmission_count < self.transmission_limit:
             if self.timeout_type == 0:
                 self._on_event(FopEvent.E16_B)
@@ -351,6 +353,21 @@ class Fop1(CopService):
     def alert(self, alert_type: Alert) -> None:
         """Execute the 'ALERT' action."""
         logger.debug(f"Alert received: {alert_type}")
+        self.cancel_timer()
+        self._sent_queue.clear()
+        self._wait_queue = None
+        if (
+            self._pending_directive_request is not None
+            and self._pending_directive_request.directive_type
+            in (
+                DirectiveType.INITIATE_AD_NO_CLCW,
+                DirectiveType.INITIATE_AD_WITH_CLCW,
+                DirectiveType.INITIATE_AD_WITH_UNLOCK,
+                DirectiveType.INITIATE_AD_WITH_SET_V_R,
+            )
+        ):
+            self._respond_to_directive(NotificationType.NEGATIVE_CONFIRM)
+            self._pending_directive_request = None
         self.interface.to_higher.try_appendleft(
             AsyncNotification(self._gvcid, AsyncNotificationType.ALERT, alert_type)
         )
