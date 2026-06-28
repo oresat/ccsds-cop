@@ -144,6 +144,7 @@ class Fop1(CopService):
         """
         if not self._validate_clcw(clcw):
             self._on_event(FopEvent.E15)
+            return
         if clcw.lockout:
             self._on_event(FopEvent.E14)
         else:
