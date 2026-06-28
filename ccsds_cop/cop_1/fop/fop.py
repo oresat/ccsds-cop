@@ -454,7 +454,7 @@ class Fop1(CopService):
 
         This is a parameterless state machine event.
         """
-        self.lower_interface.signal.try_appendleft(AbortRequest(self._gvcid))
+        self.interface.to_lower.try_appendleft(AbortRequest(self._gvcid))
         self.transmission_count += 1
         self.start_timer()
         for entry in self._sent_queue:
@@ -469,7 +469,7 @@ class Fop1(CopService):
             entry = self._sent_queue[0]
             if entry.to_be_retransmitted:
                 self.bc_out = False
-                self.lower_interface.signal.try_appendleft(
+                self.interface.to_lower.try_appendleft(
                     TransmitRequestForFrame(
                         entry.gvcid,
                         BypassSequenceControlFlag.EXPEDITED_QOS,
@@ -488,7 +488,7 @@ class Fop1(CopService):
             result = next((entry for entry in self._sent_queue if entry.to_be_retransmitted), None)
             if result is not None:
                 self.ad_out = False
-                self.lower_interface.signal.try_appendleft(
+                self.interface.to_lower.try_appendleft(
                     TransmitRequestForFrame(
                         result.gvcid,
                         BypassSequenceControlFlag.SEQ_CTRLD_QOS,
