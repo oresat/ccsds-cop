@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import threading
 from collections import deque
+from queue import Empty, SimpleQueue
 from typing import TYPE_CHECKING
 
 from spacepackets.uslp import BypassSequenceControlFlag, ProtocolCommandFlag
@@ -112,6 +113,7 @@ class Fop1(CopService):
         self.suspend_state: int = 0
 
         self._timer: threading.Timer | None = None
+        self._timer_events: SimpleQueue = SimpleQueue()
         self._request_id: int = 0
         self._gvcid: Gvcid = gvcid
         self._pending_directive_request: DirectiveRequest | None = None
@@ -310,26 +312,39 @@ class Fop1(CopService):
         """Cancel the timer."""
         if self._timer is not None:
             self._timer.cancel()
+            self._timer_events = SimpleQueue()
 
     def _on_timer_expired(self) -> None:
         if self.state == FopState.INITIAL:
             return
-        if self.transmission_count < self.transmission_limit:
-            if self.timeout_type == 0:
-                self._on_event(FopEvent.E16_B)
-            elif self.timeout_type == 1:
-                self._on_event(FopEvent.E104)
-            else:
-                logger.error("Timeout_Type not 0 or 1, resetting to 0")
-                self.timeout_type = 0
-        else:
-            if self.timeout_type == 0:
-                self._on_event(FopEvent.E17_B)
-            elif self.timeout_type == 1:
-                self._on_event(FopEvent.E18_B)
-            else:
-                logger.error("Timeout_Type not 0 or 1, resetting to 0")
-                self.timeout_type = 0
+        self._timer_events.put_nowait(None)
+
+    def drain_timer_events(self) -> None:
+        """Drain and process events from the timer event queue.
+
+        This should be run *after* event processing since a CLCW may arrive during processing.
+        """
+        try:
+            while True:
+                self._timer_events.get_nowait()
+                if self.transmission_count < self.transmission_limit:
+                    if self.timeout_type == 0:
+                        self._on_event(FopEvent.E16_B)
+                    elif self.timeout_type == 1:
+                        self._on_event(FopEvent.E104)
+                    else:
+                        logger.error("Timeout_Type not 0 or 1, resetting to 0")
+                        self.timeout_type = 0
+                else:
+                    if self.timeout_type == 0:
+                        self._on_event(FopEvent.E17_B)
+                    elif self.timeout_type == 1:
+                        self._on_event(FopEvent.E18_B)
+                    else:
+                        logger.error("Timeout_Type not 0 or 1, resetting to 0")
+                        self.timeout_type = 0
+        except Empty:
+            return
 
     def accept_fdu(self) -> None:
         """Execute the 'ACCEPT' action, for FDUs."""
